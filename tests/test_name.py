@@ -10,7 +10,7 @@ class NameTestCase(unittest.TestCase):
         name = Name("www.example.com")
         self.assertEqual(name.labels, ["www", "example", "com"])
 
-    def test_name_init1(self):
+    def test_name_init2(self):
         name = Name("")
         self.assertEqual(name.labels, [])
 
@@ -84,7 +84,7 @@ class NameTestCase(unittest.TestCase):
         self.assertEqual(name2.to_bytes(17),
                          b"\x07example\x03com\x00")
 
-    def test_name_to_bytes_compress3(self):
+    def test_name_to_bytes_compress5(self):
         name1 = Name("www.example.com")
         name2 = Name("WWW.example.com")
         compress = {}
