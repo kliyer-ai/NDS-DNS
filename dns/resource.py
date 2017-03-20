@@ -13,7 +13,7 @@ import struct
 
 from dns.classes import Class
 from dns.name import Name
-from dns.types import Type
+from dns.rtypes import Type
 
 
 class ResourceRecord(object):

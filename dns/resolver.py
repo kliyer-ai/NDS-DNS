@@ -13,7 +13,7 @@ import socket
 from dns.classes import Class
 from dns.message import Message, Question, Header
 from dns.name import Name
-from dns.types import Type
+from dns.rtypes import Type
 
 
 class Resolver:
