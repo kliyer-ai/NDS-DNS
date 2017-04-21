@@ -50,7 +50,10 @@ class ResourceRecord(object):
             type_ = Type(struct.unpack_from("!H", packet, offset)[0])
         except ValueError:
             type_ = Type.OTHER
-        class_ = Class(struct.unpack_from("!H", packet, offset + 2)[0])
+        try:
+            class_ = Class(struct.unpack_from("!H", packet, offset + 2)[0])
+        except ValueError:
+            class_ = Class.IN
         ttl, rdlength = struct.unpack_from("!iH", packet, offset + 4)
         offset += 10
         rdata = RecordData.create_from_bytes(type_, packet, offset, rdlength)
