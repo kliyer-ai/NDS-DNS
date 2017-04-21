@@ -36,6 +36,7 @@ class Type(IntEnum):
     TXT = 16
     AAAA = 28
     ANY = 255
+    OTHER = 0
 
     def __str__(self):
         return self.name

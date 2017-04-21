@@ -46,7 +46,10 @@ class ResourceRecord(object):
     def from_bytes(cls, packet, offset):
         """Convert ResourceRecord from bytes."""
         name, offset = Name.from_bytes(packet, offset)
-        type_ = Type(struct.unpack_from("!H", packet, offset)[0])
+        try:
+            type_ = Type(struct.unpack_from("!H", packet, offset)[0])
+        except TypeError:
+            type_ = Type.OTHER
         class_ = Class(struct.unpack_from("!H", packet, offset + 2)[0])
         ttl, rdlength = struct.unpack_from("!iH", packet, offset + 4)
         offset += 10
