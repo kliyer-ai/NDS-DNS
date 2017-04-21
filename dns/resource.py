@@ -48,7 +48,7 @@ class ResourceRecord(object):
         name, offset = Name.from_bytes(packet, offset)
         try:
             type_ = Type(struct.unpack_from("!H", packet, offset)[0])
-        except TypeError:
+        except ValueError:
             type_ = Type.OTHER
         class_ = Class(struct.unpack_from("!H", packet, offset + 2)[0])
         ttl, rdlength = struct.unpack_from("!iH", packet, offset + 4)
