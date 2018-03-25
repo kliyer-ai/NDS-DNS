@@ -315,7 +315,7 @@ class SOARecordData(RecordData):
     def from_dict(cls, dct):
         """Create a RecordData object from dict."""
         return cls(Name(dct["mname"]), Name(dct["rname"]), dct["serial"],
-                   dt["refresh"], dct["retry"], dct["expire"], dct["minimum"])
+                   dct["refresh"], dct["retry"], dct["expire"], dct["minimum"])
 
 
 class GenericRecordData(RecordData):

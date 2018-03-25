@@ -45,27 +45,74 @@ class Resolver:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(self.timeout)
 
+        """
+        .                        3600000      NS    A.ROOT-SERVERS.NET.
+        A.ROOT-SERVERS.NET.      3600000      A     198.41.0.4
+        A.ROOT-SERVERS.NET.      3600000      AAAA  2001:503:ba3e::2:30
+        """
+
         # Create and send query
         question = Question(Name(hostname), Type.A, Class.IN)
         header = Header(9001, 0, 1, 0, 0, 0)
-        header.qr = 0
-        header.opcode = 0
-        header.rd = 1
+        header.qr = 0  # 0 for query
+        header.opcode = 0 # standad query
+        header.rd = 0 # not recursive
         query = Message(header, [question])
-        sock.sendto(query.to_bytes(), ("8.8.8.8", 53))
 
-        # Receive response
-        data = sock.recv(512)
-        response = Message.from_bytes(data)
-
-        # Get data
         aliaslist = []
         ipaddrlist = []
-        for answer in response.answers:
-            if answer.type_ == Type.A:
-                ipaddrlist.append(answer.rdata.address)
-            if answer.type_ == Type.CNAME:
-                aliaslist.append(hostname)
-                hostname = str(answer.rdata.cname)
+
+        stackIP = []
+        stackIP.append('198.41.0.4')
+
+        stackName = []
+
+        found = False
+
+        while not found:
+            if stackIP:
+                address = stackIP.pop()
+                sock.sendto(query.to_bytes(), (address, 53))
+            elif stackName:
+                _, _, ips = self.gethostbyname(stackName.pop())
+                stackIP += ips
+                continue
+            else:
+                break
+
+            # Receive response
+            data = sock.recv(512)
+            response = Message.from_bytes(data)
+            print("New Loop")
+            print(stackIP)
+            print(stackName)
+
+            for a in response.additionals:
+                if a.type_ == Type.A:
+                    stackIP.append(a.rdata.address)
+                    print('Found A')
+                if a.type_ == Type.AAAA:
+                    print("Found AAAA")
+            
+            for a in response.authorities:
+                print(type(a))
+                if a.type_ == Type.NS:
+                    nsdname = str(a.rdata.nsdname)
+                    if nsdname not in stackName:
+                        stackName.append(nsdname)
+                elif a.type_ == Type.SOA:
+                    print("SOA:", a.rdata[0].to_dict()) # is tuple, watch out
+
+            # Get data
+
+            for answer in response.answers:                
+                if answer.type_ == Type.A:
+                    ipaddrlist.append(answer.rdata.address)
+                    found = True
+                if answer.type_ == Type.CNAME:
+                    aliaslist.append(hostname)
+                    hostname = str(answer.rdata.cname)
+                    found = True
+
 
         return hostname, aliaslist, ipaddrlist
