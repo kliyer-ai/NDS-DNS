@@ -14,7 +14,7 @@ from dns.classes import Class
 from dns.message import Message, Question, Header
 from dns.name import Name
 from dns.rtypes import Type
-
+from dns import cache
 
 class Resolver:
     """DNS resolver"""
@@ -28,7 +28,9 @@ class Resolver:
         """
         self.timeout = timeout
         self.caching = caching
+        self.rc = cache.RecordCache(ttl)
         self.ttl = ttl
+        print("Da Johannes",self.getRecordsFromCache("nickstracke.xyz"))
 
     def gethostbyname(self, hostname):
         """Translate a host name to IPv4 address.
@@ -51,6 +53,53 @@ class Resolver:
         A.ROOT-SERVERS.NET.      3600000      AAAA  2001:503:ba3e::2:30
         """
 
+
+
+        """
+        The top level algorithm has four steps:
+
+        1. See if the answer is in local information, and if so return
+            it to the client.
+
+        2. Find the best servers to ask. FIRST FROM LIST
+
+        3. Send them queries until one returns a response.
+
+        4. Analyze the response, either:
+
+                a. if the response answers the question or contains a name
+                    error, cache the data as well as returning it back to
+                    the client.
+
+                b. if the response contains a better delegation to other
+                    servers, cache the delegation information, and go to
+                    step 2.
+
+                c. if the response shows a CNAME and that is not the
+                    answer itself, cache the CNAME, change the SNAME to the
+                    canonical name in the CNAME RR and go to step 1.
+
+                d. if the response shows a servers failure or other
+                    bizarre contents, delete the server from the SLIST and
+                    go back to step 3.
+        """
+
+        found = False
+        aliaslist = []
+        ipaddrlist = []
+
+        acs = self.getRecordsFromCache(hostname,Type.A, Class.IN) + self.getRecordsFromCache(hostname,Type.CNAME, Class.IN) 
+        #print(acs)
+        for answer in acs:                
+                if answer.type_ == Type.A:
+                    ipaddrlist.append(answer.rdata.address)
+                    found = True
+                if answer.type_ == Type.CNAME:
+                    aliaslist.append(hostname)
+                    hostname = str(answer.rdata.cname)
+                    found = True
+
+
         # Create and send query
         question = Question(Name(hostname), Type.A, Class.IN)
         header = Header(9001, 0, 1, 0, 0, 0)
@@ -59,15 +108,13 @@ class Resolver:
         header.rd = 0 # not recursive
         query = Message(header, [question])
 
-        aliaslist = []
-        ipaddrlist = []
+       
 
         stackIP = []
         stackIP.append('198.41.0.4')
+        stackIP.append('202.12.27.33')
 
         stackName = []
-
-        found = False
 
         while not found:
             if stackIP:
@@ -83,36 +130,49 @@ class Resolver:
             # Receive response
             data = sock.recv(512)
             response = Message.from_bytes(data)
-            print("New Loop")
-            print(stackIP)
-            print(stackName)
 
             for a in response.additionals:
                 if a.type_ == Type.A:
                     stackIP.append(a.rdata.address)
-                    print('Found A')
+                    self.addRecordToCache(a)
+                    print("A", a)
+
                 if a.type_ == Type.AAAA:
-                    print("Found AAAA")
-            
+                    pass
+
             for a in response.authorities:
-                print(type(a))
                 if a.type_ == Type.NS:
                     nsdname = str(a.rdata.nsdname)
-                    if nsdname not in stackName:
+                    if self.getRecordsFromCache(nsdname):
+                        stackIP = [self.getRecordsFromCache(nsdname)[0].rdata.address] + stackIP
+                    else:
+                        print("S", nsdname)
                         stackName.append(nsdname)
                 elif a.type_ == Type.SOA:
-                    print("SOA:", a.rdata[0].to_dict()) # is tuple, watch out
+                    pass
 
             # Get data
 
             for answer in response.answers:                
                 if answer.type_ == Type.A:
+                    self.addRecordToCache(answer)
                     ipaddrlist.append(answer.rdata.address)
                     found = True
                 if answer.type_ == Type.CNAME:
+                    self.addRecordToCache(answer)
                     aliaslist.append(hostname)
                     hostname = str(answer.rdata.cname)
                     found = True
 
 
         return hostname, aliaslist, ipaddrlist
+
+    def addRecordToCache(self, record):
+        if self.caching:
+            self.rc.add_record(record)
+
+    def getRecordsFromCache(self, dname, t=Type.A, c=Class.IN):
+        if self.caching:
+            return self.rc.lookup(Name(dname),t,c)
+        else:
+            return []

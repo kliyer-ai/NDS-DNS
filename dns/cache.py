@@ -10,6 +10,8 @@ It is highly recommended to use these.
 
 
 import json
+import time
+
 
 from dns.resource import ResourceRecord
 
@@ -37,7 +39,12 @@ class RecordCache:
             type_ (Type): type
             class_ (Class): class
         """
-        pass
+        self.read_cache_file()
+        rrs = [ResourceRecord.from_dict(r) for r in self.records]
+        rs = [r for r in rrs if r.name == dname and r.class_ == class_ and r.type_ == type_]
+        return rs
+
+
 
     def add_record(self, record):
         """Add a new Record to the cache
@@ -45,7 +52,13 @@ class RecordCache:
         Args:
             record (ResourceRecord): the record added to the cache
         """
-        pass
+        dic = record.to_dict()
+        if self.ttl > 0:
+            dic["ttl"] = self.ttl
+        dic["timestamp"] = time.time()
+        self.records.append(dic)
+        self.write_cache_file()
+        
 
     def read_cache_file(self):
         """Read the cache file from disk"""
@@ -55,13 +68,13 @@ class RecordCache:
                 dcts = json.load(file_)
         except:
             print("could not read cache")
-        self.records = [ResourceRecord.from_dict(dct) for dct in dcts]
+        self.records = [dct for dct in dcts if (time.time() - dct["timestamp"]) < dct["ttl"]]
 
     def write_cache_file(self):
         """Write the cache file to disk"""
-        dcts = [record.to_dict() for record in self.records]
         try:
             with open("cache", "w") as file_:
-                json.dump(dcts, file_, indent=2)
+                #print("file")
+                json.dump(self.records, file_, indent=2)
         except:
             print("could not write cache")

@@ -1,0 +1,21 @@
+;owner-name  ttl class rr    name-server email-addr  (sn ref ret ex min)
+;$TTL	86400 ; 24 hours could have been written as 24h or 1d
+;$ORIGIN nickstracke.xyz.
+;$INCLUDE <somefile.zone>
+;example.com.    IN    SOA   ns.example.com. hostmaster.example.com. (
+;                              2003080800 ; sn = serial number
+;                              172800     ; ref = refresh = 2d
+;                              900        ; ret = update retry = 15m
+;                              1209600    ; ex = expiry = 2w
+;                              3600       ; nx = nxdomain ttl = 1h
+;                              )
+; the following are also valid using @ and blank 
+;
+;       IN  NS     ns1.example.com. ; in the domain
+; server host definitions
+;ns1    IN  A      192.168.0.1  ;name server definition     
+;www    IN  A      192.168.0.2  ;web server definition
+google.com. 3600 IN  A 172.217.17.142 ;google is awesome not
+;ftp    IN  CNAME  www.example.com.  ;ftp server definition
+; non server domain hosts
+;kliyer   IN  A      192.168.0.3
