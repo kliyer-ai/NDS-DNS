@@ -11,15 +11,15 @@ from dns.resource import ResourceRecord
 def main():
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-  question = Question(Name("stupid.ourdomain.com"), Type.A, Class.IN)
+  question = Question(Name("github.com."), Type.A, Class.IN)
   header = Header(9001, 0, 1, 0, 0, 0)
   header.qr = 0  # 0 for query
   header.opcode = 0 # standad query
-  header.rd = 1 # not recursive
+  header.rd = 1 #  recursive
   query = Message(header, [question])
 
   sock.sendto(query.to_bytes(), (socket.gethostbyname(socket.gethostname()), 53))
-  data, addr = sock.recvfrom(512)
+  data, addr = sock.recvfrom(1024)
   mess = Message.from_bytes(data)
   """
   answer =  ResourceRecord.to_dict(mess.answers[0])

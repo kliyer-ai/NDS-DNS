@@ -27,7 +27,7 @@ class RequestHandler(Thread):
         self.addr = addr
         self.catalog = catalog
         self.cache = RecordCache(0)
-        self.resolver = Resolver(1, caching, 3600)
+        self.resolver = Resolver(5, caching, 0)
         self.sock = sock
 
     def run(self):
@@ -54,7 +54,7 @@ class RequestHandler(Thread):
             otherwise step 4. WE ONLY HAVE ONE FOR THIS EXAMPLE
 
         3. Start matching down, label by label, in the zone.  The
-            matching process can terminate several ways:  DO LAST!!!
+            matching process can terminate several ways:  
 
                 a. If the whole of QNAME is matched, we have found the
                     node.
@@ -120,9 +120,8 @@ class RequestHandler(Thread):
             class_ = q.qclass
             type_ = q.qtype
 
-            zone_resolution = self.resolveZone(name, type_, class_)
+            zone_resolution = self.resolveZone(str(name), type_, class_)
             if zone_resolution:
-
                 mess.additionals += zone_resolution["additionals"]
                 mess.authorities += zone_resolution["authorities"]
                 mess.answers += zone_resolution["answers"]
@@ -134,11 +133,19 @@ class RequestHandler(Thread):
                 mess.header.aa = 1
                 continue
 
-            cached_rr = self.cache.lookup(name, type_, class_)
-            if cached_rr:
-                mess.answers += cached_rr
+            print("curious", name.labels)
+            cached_rrs = self.cache.lookup(str(name), type_, class_)
+            if cached_rrs:
+                mess.answers += cached_rrs
                 continue
+            elif not rd:
+                matched = self.cache.matchByLabel(str(name), Type.NS, class_)
+                mess.authorities += matched
+                for m in matched:
+                    glue = self.cache.lookup(str(m.rdata.nsdname), Type.A, class_)
+                    mess.authorities += glue
 
+            print("curious", name.labels)
             if rd:
                 hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(str(name))
                 mess.answers += aliaslist
@@ -161,7 +168,7 @@ class RequestHandler(Thread):
         #    mess.answers += 
 
     def resolveZone(self, name, type_, class_):
-        
+        name = Name(name)
         root_domain = name.labels[-2:]
         root_domain = root_domain[0] + "." + root_domain[1]
 

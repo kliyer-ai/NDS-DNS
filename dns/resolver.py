@@ -87,13 +87,21 @@ class Resolver:
 
         alias_list = []
         a_list = []
+        slist = []        
         found = False
 
         acs = self.getRecordsFromCache(hostname,Type.A, Class.IN) 
         if acs:
             a_list += acs
             return hostname, alias_list, a_list
-            
+
+        nscs = self.matchByLabel(hostname, Type.NS, Class.IN)
+        for ns in nscs:
+            glue = self.getRecordsFromCache(str(ns.rdata.nsdname))
+            if glue:
+                slist += glue
+            else:
+                slist += [ns]
 
 
         # Create and send query
@@ -104,8 +112,6 @@ class Resolver:
         header.rd = 0 # not recursive
         query = Message(header, [question])
 
-
-        slist = []
         self.zone.read_master_file('dns/root.zone')
 
         sbelt = []
@@ -117,8 +123,7 @@ class Resolver:
         while not found:
             if slist:
                 rr = slist.pop()
-                print(rr.to_dict())
-
+                print("rsolver",rr.to_dict())
                 if rr.type_ == Type.A:
                     addr = rr.rdata.address
                     sock.sendto(query.to_bytes(), (addr, 53))
@@ -186,6 +191,12 @@ class Resolver:
 
     def getRecordsFromCache(self, dname, t=Type.A, c=Class.IN):
         if self.caching:
-            return self.rc.lookup(Name(dname),t,c)
+            return self.rc.lookup(dname,t,c)
+        else:
+            return []
+
+    def matchByLabel(self, dname, type_, class_):
+        if self.caching:
+            return self.rc.matchByLabel(dname, type_, class_)
         else:
             return []

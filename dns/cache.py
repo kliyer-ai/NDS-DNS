@@ -11,7 +11,7 @@ It is highly recommended to use these.
 
 import json
 import time
-
+from dns.name import Name
 
 from dns.resource import ResourceRecord
 
@@ -40,9 +40,25 @@ class RecordCache:
             class_ (Class): class
         """
         self.read_cache_file()
+        dname = Name(dname)
         rrs = [ResourceRecord.from_dict(r) for r in self.records]
         rs = [r for r in rrs if r.name == dname and r.class_ == class_ and r.type_ == type_]
         return rs
+
+    def matchByLabel(self, dname, type_, class_):
+        """
+        Args:
+            dname (Name): domain name
+            type_ (Type): type
+            class_ (Class): class
+        """
+        dname = Name(dname)
+        while dname.labels:
+            rrs = self.lookup(str(dname), type_, class_)
+            if rrs:
+                return rrs
+            dname.labels = dname.labels[1:]
+        return []
 
 
     def add_record(self, record):

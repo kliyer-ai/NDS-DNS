@@ -27,11 +27,9 @@ def resolve():
     hostname, aliaslist, ipaddrlist = resolver.gethostbyname(args.hostname)
 
     print(hostname)
-    print(aliaslist)
-    print(rrs_to_list(ipaddrlist))
+    print([rr.rdata.address for rr in aliaslist])
+    print([rr.rdata.address for rr in ipaddrlist])
 
-def rrs_to_list(rrs):
-    return [rr.rdata.address for rr in rrs]
 
 
 if __name__ == "__main__":
