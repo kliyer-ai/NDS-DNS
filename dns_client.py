@@ -28,7 +28,10 @@ def resolve():
 
     print(hostname)
     print(aliaslist)
-    print(ipaddrlist)
+    print(rrs_to_list(ipaddrlist))
+
+def rrs_to_list(rrs):
+    return [rr.rdata.address for rr in rrs]
 
 
 if __name__ == "__main__":

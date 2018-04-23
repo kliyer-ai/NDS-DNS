@@ -15,6 +15,7 @@ from dns.message import Message, Question, Header
 from dns.name import Name
 from dns.rtypes import Type
 from dns import cache
+from dns.zone import Zone
 
 class Resolver:
     """DNS resolver"""
@@ -30,7 +31,7 @@ class Resolver:
         self.caching = caching
         self.rc = cache.RecordCache(ttl)
         self.ttl = ttl
-        print("Da Johannes",self.getRecordsFromCache("nickstracke.xyz"))
+        self.zone = Zone()
 
     def gethostbyname(self, hostname):
         """Translate a host name to IPv4 address.
@@ -84,20 +85,15 @@ class Resolver:
                     go back to step 3.
         """
 
+        alias_list = []
+        a_list = []
         found = False
-        aliaslist = []
-        ipaddrlist = []
 
-        acs = self.getRecordsFromCache(hostname,Type.A, Class.IN) + self.getRecordsFromCache(hostname,Type.CNAME, Class.IN) 
-        #print(acs)
-        for answer in acs:                
-                if answer.type_ == Type.A:
-                    ipaddrlist.append(answer.rdata.address)
-                    found = True
-                if answer.type_ == Type.CNAME:
-                    aliaslist.append(hostname)
-                    hostname = str(answer.rdata.cname)
-                    found = True
+        acs = self.getRecordsFromCache(hostname,Type.A, Class.IN) 
+        if acs:
+            a_list += acs
+            return hostname, alias_list, a_list
+            
 
 
         # Create and send query
@@ -108,22 +104,41 @@ class Resolver:
         header.rd = 0 # not recursive
         query = Message(header, [question])
 
-       
 
-        stackIP = []
-        stackIP.append('198.41.0.4')
-        stackIP.append('202.12.27.33')
+        slist = []
+        self.zone.read_master_file('dns/root.zone')
 
-        stackName = []
+        sbelt = []
+        for root in list(self.zone.records.values()):
+            sbelt += [r for r in root if r.type_ == Type.A]
+
+
 
         while not found:
-            if stackIP:
-                address = stackIP.pop()
-                sock.sendto(query.to_bytes(), (address, 53))
-            elif stackName:
-                _, _, ips = self.gethostbyname(stackName.pop())
-                stackIP += ips
-                continue
+            if slist:
+                rr = slist.pop()
+                print(rr.to_dict())
+
+                if rr.type_ == Type.A:
+                    addr = rr.rdata.address
+                    sock.sendto(query.to_bytes(), (addr, 53))
+                elif rr.type_ == Type.NS:
+                    fqdn = str(rr.rdata.nsdname)
+                    _, _, a_rrs = self.gethostbyname(fqdn)
+                    slist += a_rrs 
+                    continue
+                elif rr.type_ == Type.CNAME:
+                    fqdn = str(rr.rdata.cname)
+                    _, cname_rrs, a_rrs = self.gethostbyname(fqdn)
+                    a_list += a_rrs
+                    alias_list += cname_rrs
+                    break
+
+            elif sbelt:
+                rr = sbelt.pop()
+                print(rr.to_dict())
+                addr = rr.rdata.address
+                sock.sendto(query.to_bytes(), (addr, 53))
             else:
                 break
 
@@ -131,41 +146,39 @@ class Resolver:
             data = sock.recv(512)
             response = Message.from_bytes(data)
 
-            for a in response.additionals:
-                if a.type_ == Type.A:
-                    stackIP.append(a.rdata.address)
-                    self.addRecordToCache(a)
-                    print("A", a)
-
-                if a.type_ == Type.AAAA:
-                    pass
-
-            for a in response.authorities:
-                if a.type_ == Type.NS:
-                    nsdname = str(a.rdata.nsdname)
-                    if self.getRecordsFromCache(nsdname):
-                        stackIP = [self.getRecordsFromCache(nsdname)[0].rdata.address] + stackIP
-                    else:
-                        print("S", nsdname)
-                        stackName.append(nsdname)
-                elif a.type_ == Type.SOA:
-                    pass
-
-            # Get data
-
             for answer in response.answers:                
                 if answer.type_ == Type.A:
                     self.addRecordToCache(answer)
-                    ipaddrlist.append(answer.rdata.address)
+                    a_list.append(answer)
                     found = True
                 if answer.type_ == Type.CNAME:
                     self.addRecordToCache(answer)
-                    aliaslist.append(hostname)
-                    hostname = str(answer.rdata.cname)
-                    found = True
+                    alias_list.append(answer)
+                    slist += [answer] 
+                    continue
+
+            nss = []
+            for auth in response.authorities:
+                if auth.type_ == Type.NS:
+                    nss.append(auth)
+                    self.addRecordToCache(auth)
+
+            a_add = {}
+            for add in response.additionals:
+                if add.type_ == Type.A:
+                    name = str(add.name)
+                    a_add[name] = add
+                    self.addRecordToCache(add)
+
+            for ns in nss:
+                name = str(ns.rdata.nsdname)
+                if name in a_add:
+                    slist += [a_add[name]]
+                else:
+                    slist += [ns] 
 
 
-        return hostname, aliaslist, ipaddrlist
+        return hostname, alias_list, a_list
 
     def addRecordToCache(self, record):
         if self.caching:

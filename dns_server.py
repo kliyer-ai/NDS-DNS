@@ -26,7 +26,7 @@ def run_server():
         server.serve()
     except KeyboardInterrupt:
         server.shutdown()
-        print()
+        print("shutting down...")
 
 
 if __name__ == "__main__":

@@ -13,12 +13,13 @@ from dns.zone import *
 from dns.message import *
 from dns.cache import RecordCache
 from dns.resolver import Resolver
+from dns.resource import ResourceRecord
 
 
 class RequestHandler(Thread):
     """A handler for requests to the DNS server"""
 
-    def __init__(self, data, addr, catalog):
+    def __init__(self, data, addr, catalog, sock, caching):
         """Initialize the handler thread"""
         super().__init__()
         self.daemon = True
@@ -26,8 +27,8 @@ class RequestHandler(Thread):
         self.addr = addr
         self.catalog = catalog
         self.cache = RecordCache(0)
-        self.resolver = Resolver(1, True, 3600)
-         # ONLY ONCE
+        self.resolver = Resolver(1, caching, 3600)
+        self.sock = sock
 
     def run(self):
         """ Run the handler thread"""
@@ -50,7 +51,7 @@ class RequestHandler(Thread):
 
         2. Search the available zones for the zone which is the nearest
             ancestor to QNAME.  If such a zone is found, go to step 3,
-            otherwise step 4.
+            otherwise step 4. WE ONLY HAVE ONE FOR THIS EXAMPLE
 
         3. Start matching down, label by label, in the zone.  The
             matching process can terminate several ways:  DO LAST!!!
@@ -121,7 +122,16 @@ class RequestHandler(Thread):
 
             zone_resolution = self.resolveZone(name, type_, class_)
             if zone_resolution:
-                mess.answers += zone_resolution
+
+                mess.additionals += zone_resolution["additionals"]
+                mess.authorities += zone_resolution["authorities"]
+                mess.answers += zone_resolution["answers"]
+
+                cnames = [ rr for rr in zone_resolution["answers"] if rr.type_ == Type.CNAME ]
+                for cn in cnames:
+                    questions.append(Question( cn.rdata.cname , Type.A, cn.class_))
+
+                mess.header.aa = 1
                 continue
 
             cached_rr = self.cache.lookup(name, type_, class_)
@@ -130,46 +140,70 @@ class RequestHandler(Thread):
                 continue
 
             if rd:
-                hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(name)
-                ttl = 3600
-                rrs_ip = [rr = {"type":Type.A, "name":hostname, "class":class_, "ttl":ttl, "rdata":{"address":ip}} for ip in ipaddrlist]
-                rrs_cname = [rr = {"type":Type.CNAME, "name":hostname, "class":class_, "ttl":ttl, "rdata":{"cname":cname}} for cname in aliaslist]
+                hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(str(name))
+                mess.answers += aliaslist
+                mess.answers += ipaddrlist
+                mess.header.ra = 1            
                 continue
 
-            
+        
+        # adjust header
+        mess.header.qr = 1
+        mess.header.qd_count = len(mess.questions)
+        mess.header.an_count = len(mess.answers)
+        mess.header.ns_count = len(mess.authorities)
+        mess.header.ar_count = len(mess.additionals)
 
         # send message   
+        self.sock.sendto(mess.to_bytes(), self.addr)
+
+        #if zone.records[name]: # TODO: check for .
+        #    mess.answers += 
+
+    def resolveZone(self, name, type_, class_):
+        
+        root_domain = name.labels[-2:]
+        root_domain = root_domain[0] + "." + root_domain[1]
+
+        if root_domain not in self.catalog.zones:
+            return {}
+
+        zone = self.catalog.zones[root_domain]
+
+        current_domain = name
+
+        if str(current_domain) in zone.records:
+            records = zone.records[str(current_domain)]
+            rrs_a = [rr for rr in records if (rr.type_ == Type.A or rr.type_ == Type.CNAME) and rr.class_ == Class.IN]
+            if rrs_a:
+                return {"answers" : rrs_a, "additionals" : [], "authorities" : []}
+
+        while True:
+            if str(current_domain) in zone.records:           
+                records = zone.records[str(current_domain)]
+
+                rrs_ns = [rr for rr in records if rr.type_ == Type.NS and rr.class_ == Class.IN]
+                if rrs_ns:
+                    ret = {"answers" : [], "authorities" : rrs_ns, "additionals" : []}
+
+                    for rr_ns in rrs_ns:
+                        ns_name = str(rr_ns.rdata.nsdname)
+                        if ns_name in zone.records:
+                            ns_records = zone.records[ns_name]
+                            glue = [rr for rr in ns_records if rr.type_ == Type.A and rr.class_ == Class.IN]
+                            ret["additionals"] += glue
+
+                    return ret
 
 
-            #if zone.records[name]: # TODO: check for .
-            #    mess.answers += 
-            """
-            if type_ == Type.A:
-                r = self.resolveZone(name, type_)
-                if r:
-                    mess.answers.append(r)
-                    continue
-            elif type_ == Type.NS:
-                r = self.resolveZone(name, type_)
-                if r:
-                    mess.answers.append(r)
-                    continue
-            elif type_ == Type.CNAME:
-                r = self.resolveZone(name, type_)
-                if r:
-                    mess.answers.append(r)
-                    continue
-            else:
-                print("Question type not supported")
-            """
+            current_domain.labels = current_domain.labels[1:]
+            if not current_domain.labels:
+                break
+                
 
-    def resolveZone(self,name, type_, class_):
-        zoneRecords = self.catalog.zones["ourdomain.com"].records
-        matches = [rr for rr in zoneRecords if rr.name == name and rr.class_ == class_]
-        if not matches:
-            return None
-        perfectmatch = [prr for prr in matches if prr.type_ == type_]
+        return {}
             
+    
             
 
 
@@ -199,11 +233,13 @@ class Server:
 
     def serve(self):
         """Start serving requests"""
-        sock = socket.socket("AF_INET", "SOCK_DGRAM")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((socket.gethostbyname(socket.gethostname()),self.port))
+        print("serving on port", self.port)
         while not self.done:
             data, addr = sock.recvfrom(1024)
-            re = RequestHandler(data, addr, self.catalog)
+            print(addr)
+            re = RequestHandler(data, addr, self.catalog, sock, self.caching)
             re.start()
 
 

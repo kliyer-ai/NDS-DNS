@@ -17,7 +17,7 @@ class Catalog:
 
     def __init__(self):
         """Initialize the catalog"""
-        self.zones = {"ourdomain.com" : Zone().read_master_file("master.zone")}
+        self.zones = {"ourdomain.com" : Zone().read_master_file("dns/ourdomain.zone")}
 
     def add_zone(self, name, zone):
         """Add a new zone to the catalog
@@ -53,24 +53,31 @@ class Zone:
         Args:
             filename (str): the filename of the master file
         """
+        typeData = {
+            "NS"    :   "nsdname",
+            "A"     :   "address",
+            "CNAME" :   "cname"
+        }
         try:
             with open(filename, "r") as file_:
                 for l in file_:
                     rr = l.split(";")[0]
                     if not rr:
                         continue
-                    entries = re.split("[\ +]*[\\t+]*",rr)
+                    entries = re.split("[\\n]?[\ +]*[\\t+]*",rr)[:-1]
                     name = entries[0]
-                    ttl = entries[1]
-                    class_ = entries[2]
-                    type_ = entries[3]
-                    address = entries[4]
-                    rr = {"type":type_, "name":name, "class":class_, "ttl":ttl, "rdata":{"address":address}}
+                    ttl = int(entries[1])
+                    type_ = entries[2]
+                    address = entries[3]
+
+                    if type_ not in typeData:
+                        continue
+
+                    rr = {"type":type_, "name":name, "class": "IN", "ttl":ttl, "rdata":{typeData[type_]:address}}
                     if name not in self.records:
                         self.records[name] = [ResourceRecord.from_dict(rr)]
                     else:
                         self.records[name].append(ResourceRecord.from_dict(rr))
-                    print(self.records[name])
         except:
             print("could not read zone file")
         return self

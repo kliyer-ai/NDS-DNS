@@ -45,7 +45,6 @@ class RecordCache:
         return rs
 
 
-
     def add_record(self, record):
         """Add a new Record to the cache
 
@@ -53,11 +52,12 @@ class RecordCache:
             record (ResourceRecord): the record added to the cache
         """
         dic = record.to_dict()
-        if self.ttl > 0:
-            dic["ttl"] = self.ttl
-        dic["timestamp"] = time.time()
-        self.records.append(dic)
-        self.write_cache_file()
+        if dic not in self.records:
+            if self.ttl > 0:
+                dic["ttl"] = self.ttl
+            dic["timestamp"] = time.time()
+            self.records.append(dic)
+            self.write_cache_file()
         
 
     def read_cache_file(self):

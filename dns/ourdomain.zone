@@ -15,7 +15,9 @@
 ; server host definitions
 ;ns1    IN  A      192.168.0.1  ;name server definition     
 ;www    IN  A      192.168.0.2  ;web server definition
-google.com. 3600 IN  A 172.217.17.142 ;google is awesome not
+ns1.ourdomain.com.  3600    A   255.255.255.255 ;google is awesome not
+ourdomain.com.  3600    NS  ns1.ourdomain.com.
+stupid.ourdomain.com.  3600    CNAME   nickstracke.xyz.
 ;ftp    IN  CNAME  www.example.com.  ;ftp server definition
 ; non server domain hosts
 ;kliyer   IN  A      192.168.0.3
