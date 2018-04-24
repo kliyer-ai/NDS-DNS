@@ -155,7 +155,7 @@ class Resolver:
             data = None
             while not data:
                 data = self.sock.msgThere(self.id)
-            response = data
+            response = data[0]
             #response = Message.from_bytes(data)
 
             for answer in response.answers:                

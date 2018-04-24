@@ -28,8 +28,8 @@ class RequestHandler(Thread):
         self.addr = addr
         self.catalog = catalog
         self.cache = RecordCache(0)
-        self.resolver = Resolver(5, caching, 0, self.sock)
         self.sock = sock
+        self.resolver = Resolver(5, caching, 0, self.sock)
 
     def run(self):
         """ Run the handler thread"""

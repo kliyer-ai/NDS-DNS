@@ -13,9 +13,10 @@ class SocketWrapper(threading.Thread):
 
     def __init__(self, port):
         threading.Thread.__init__(self)
+        ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((socket.gethostbyname(socket.gethostname()), self.port))
+        self.sock.bind((ip, self.port))
         self.sock.settimeout(0.1)
         self.close = False
 
@@ -41,13 +42,13 @@ class SocketWrapper(threading.Thread):
         if self.close:
             self.sock.close()
             return
-        r, _, _ = select.select([self.sock], [], [], 0.1)
+        r, _, _ = select.select([self.sock], [], [], 0.00)
         if r:
             data, addr = self.sock.recvfrom(1024, )
             msg = message.Message.from_bytes(data)
             id = msg.header.ident
             if id in self.msgs:
-                self.msgs[id] += msg
+                self.msgs[id] += [msg]
             else:
                 self.msgs[id] = [msg]
 
@@ -65,7 +66,7 @@ class SocketWrapper(threading.Thread):
                 self.msgs[id] = []
             if id==-1:
                 for k,m in self.msgs:
-                    if m.qr:
+                    if not m.qr:
                         idMsgs += [m]
         return idMsgs
 
