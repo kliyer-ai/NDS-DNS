@@ -12,9 +12,10 @@ class SocketWrapper(threading.Thread):
     q = queue.Queue(42)
 
     def __init__(self, port):
+        threading.Thread.__init__(self)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('localhost', self.port))
+        self.sock.bind((socket.gethostbyname(socket.gethostname()), self.port))
         self.sock.settimeout(0.1)
         self.close = False
 
@@ -22,6 +23,19 @@ class SocketWrapper(threading.Thread):
         while not self.close:
             self.listen()
             self.flush_send()
+
+    def listBocking(self, id):
+        idMsgs = []
+        while not idMsgs:
+            with self.readlock:
+                if id in self.msgs:
+                    idMsgs = self.msgs[id]
+                    self.msgs[id] = []
+                if id == -1:
+                    for k, m in self.msgs:
+                        if m.qr:
+                            idMsgs += [m]
+        return idMsgs
 
     def listen(self):
         if self.close:
@@ -40,7 +54,8 @@ class SocketWrapper(threading.Thread):
     def flush_send(self):
         while not self.q.empty():
             i = self.q.get()
-            self.sock.sendto(i[0].to_bytes(), (i[1], i[2]))
+            print(i[1])
+            self.sock.sendto(i[0].to_bytes(), (i[1], self.port))
 
     def msgThere(self, id):
         idMsgs = []
@@ -48,6 +63,10 @@ class SocketWrapper(threading.Thread):
             if id in self.msgs:
                 idMsgs = self.msgs[id]
                 self.msgs[id] = []
+            if id==-1:
+                for k,m in self.msgs:
+                    if m.qr:
+                        idMsgs += [m]
         return idMsgs
 
     def send(self, msg):
@@ -55,7 +74,7 @@ class SocketWrapper(threading.Thread):
         :param msg: tuple of shape (msg, ip, port)
         :return:
         """
-        self.q.add(msg)
+        self.q.put(msg)
 
     def shotdown(self):
         self.close = True

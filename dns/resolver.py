@@ -16,11 +16,12 @@ from dns.name import Name
 from dns.rtypes import Type
 from dns import cache
 from dns.zone import Zone
+from dns.socketWrapper import SocketWrapper
 
 class Resolver:
     """DNS resolver"""
 
-    def __init__(self, timeout, caching, ttl):
+    def __init__(self, timeout, caching, ttl, sock = None, id = 9292):
         """Initialize the resolver
 
         Args:
@@ -32,6 +33,11 @@ class Resolver:
         self.rc = cache.RecordCache(ttl)
         self.ttl = ttl
         self.zone = Zone()
+        self.sock = sock
+        if self.sock == None:
+            self.sock = SocketWrapper(53)
+            self.sock.start()
+        self.id = id
 
     def gethostbyname(self, hostname):
         """Translate a host name to IPv4 address.
@@ -45,8 +51,6 @@ class Resolver:
         Returns:
             (str, [str], [str]): (hostname, aliaslist, ipaddrlist)
         """
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(self.timeout)
 
         """
         .                        3600000      NS    A.ROOT-SERVERS.NET.
@@ -106,7 +110,7 @@ class Resolver:
 
         # Create and send query
         question = Question(Name(hostname), Type.A, Class.IN)
-        header = Header(9001, 0, 1, 0, 0, 0)
+        header = Header(self.id, 0, 1, 0, 0, 0)
         header.qr = 0  # 0 for query
         header.opcode = 0 # standad query
         header.rd = 0 # not recursive
@@ -126,7 +130,7 @@ class Resolver:
                 print("rsolver",rr.to_dict())
                 if rr.type_ == Type.A:
                     addr = rr.rdata.address
-                    sock.sendto(query.to_bytes(), (addr, 53))
+                    self.sock.send((query,addr))
                 elif rr.type_ == Type.NS:
                     fqdn = str(rr.rdata.nsdname)
                     _, _, a_rrs = self.gethostbyname(fqdn)
@@ -143,13 +147,16 @@ class Resolver:
                 rr = sbelt.pop()
                 print(rr.to_dict())
                 addr = rr.rdata.address
-                sock.sendto(query.to_bytes(), (addr, 53))
+                self.sock.send((query,addr))
             else:
                 break
 
             # Receive response
-            data = sock.recv(512)
-            response = Message.from_bytes(data)
+            data = None
+            while not data:
+                data = self.sock.msgThere(self.id)
+            response = data
+            #response = Message.from_bytes(data)
 
             for answer in response.answers:                
                 if answer.type_ == Type.A:

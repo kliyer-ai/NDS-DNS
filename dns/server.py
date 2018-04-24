@@ -13,6 +13,7 @@ from dns.zone import *
 from dns.message import *
 from dns.cache import RecordCache
 from dns.resolver import Resolver
+from dns.socketWrapper import SocketWrapper
 from dns.resource import ResourceRecord
 
 
@@ -27,7 +28,7 @@ class RequestHandler(Thread):
         self.addr = addr
         self.catalog = catalog
         self.cache = RecordCache(0)
-        self.resolver = Resolver(5, caching, 0)
+        self.resolver = Resolver(5, caching, 0, self.sock)
         self.sock = sock
 
     def run(self):
@@ -237,16 +238,18 @@ class Server:
         self.port = port
         self.done = False
         self.catalog = Catalog()
+        self.sock = SocketWrapper(self.port)
+        self.sock.start()
 
     def serve(self):
         """Start serving requests"""
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((socket.gethostbyname(socket.gethostname()),self.port))
         print("serving on port", self.port)
         while not self.done:
-            data, addr = sock.recvfrom(1024)
+            data = None
+            while not data:
+                data, addr = self.sock.msgThere(-1)
             print(addr)
-            re = RequestHandler(data, addr, self.catalog, sock, self.caching)
+            re = RequestHandler(data, addr, self.catalog, self.sock, self.caching)
             re.start()
 
 
