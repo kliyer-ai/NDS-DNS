@@ -12,13 +12,15 @@ It is highly recommended to use these.
 import json
 import time
 from dns.name import Name
+import threading
 
 from dns.resource import ResourceRecord
 
 
 class RecordCache:
     """Cache for ResourceRecords"""
-
+    addLock = threading.Lock()
+    writeLock = threading.Lock()
     def __init__(self, ttl):
         """Initialize the RecordCache
 
@@ -27,8 +29,10 @@ class RecordCache:
         """
         self.records = []
         self.ttl = ttl
+        self.read_cache_file()
 
     def lookup(self, dname, type_, class_):
+        print("using caching")
         """Lookup resource records in cache
 
         Lookup for the resource records for a domain name with a specific type
@@ -39,9 +43,8 @@ class RecordCache:
             type_ (Type): type
             class_ (Class): class
         """
-        self.read_cache_file()
         dname = Name(dname)
-        rrs = [ResourceRecord.from_dict(r) for r in self.records]
+        rrs = [ResourceRecord.from_dict(r) for r in self.records if (time.time() - r["timestamp"]) <r["ttl"]]
         rs = [r for r in rrs if r.name == dname and r.class_ == class_ and r.type_ == type_]
         return rs
 
@@ -68,12 +71,12 @@ class RecordCache:
             record (ResourceRecord): the record added to the cache
         """
         dic = record.to_dict()
-        if dic not in self.records:
-            if self.ttl > 0:
-                dic["ttl"] = self.ttl
-            dic["timestamp"] = time.time()
-            self.records.append(dic)
-            self.write_cache_file()
+        with self.addLock:
+            if dic not in self.records:
+                if self.ttl > 0:
+                    dic["ttl"] = self.ttl
+                dic["timestamp"] = time.time()
+                self.records.append(dic)
         
 
     def read_cache_file(self):
@@ -89,8 +92,9 @@ class RecordCache:
     def write_cache_file(self):
         """Write the cache file to disk"""
         try:
-            with open("cache", "w") as file_:
-                #print("file")
-                json.dump(self.records, file_, indent=2)
+            with self.writeLock:
+                with open("cache", "w") as file_:
+                    #print("file")
+                    json.dump(self.records, file_, indent=2)
         except:
             print("could not write cache")

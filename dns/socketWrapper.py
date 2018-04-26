@@ -14,6 +14,7 @@ class SocketWrapper(threading.Thread):
     def __init__(self, port):
         threading.Thread.__init__(self)
         ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
+        
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((ip, self.port))
@@ -25,18 +26,6 @@ class SocketWrapper(threading.Thread):
             self.listen()
             self.flush_send()
 
-    def listBocking(self, id):
-        idMsgs = []
-        while not idMsgs:
-            with self.readlock:
-                if id in self.msgs:
-                    idMsgs = self.msgs[id]
-                    self.msgs[id] = []
-                if id == -1:
-                    for k, m in self.msgs:
-                        if m.qr:
-                            idMsgs += [m]
-        return idMsgs
 
     def listen(self):
         if self.close:
@@ -44,13 +33,14 @@ class SocketWrapper(threading.Thread):
             return
         r, _, _ = select.select([self.sock], [], [], 0.00)
         if r:
-            data = self.sock.recv(1024)
+            data, addr = self.sock.recvfrom(1024)
             msg = message.Message.from_bytes(data)
             id = msg.header.ident
-            if id in self.msgs:
-                self.msgs[id] += [msg]
-            else:
-                self.msgs[id] = [msg]
+            with self.readlock:
+                if id in self.msgs:
+                    self.msgs[id].append((msg,addr))
+                else:
+                    self.msgs[id] = [(msg,addr)]
 
     def flush_send(self):
         while not self.q.empty():
@@ -65,9 +55,11 @@ class SocketWrapper(threading.Thread):
                 idMsgs = self.msgs[id]
                 self.msgs[id] = []
             if id==-1:
-                for k,m in self.msgs:
-                    if not m.qr:
-                        idMsgs += [m]
+                for k,ms in self.msgs.items():
+                    for m in ms:
+                        if not m[0].header.qr:
+                            idMsgs += [m]
+                        self.msgs[k] = [n for n in self.msgs[k] if n not in idMsgs]
         return idMsgs
 
     def send(self, msg):
@@ -78,5 +70,5 @@ class SocketWrapper(threading.Thread):
         self.q.put(msg)
 
     def shutdown(self):
-        self.sock.shutdown()
+        self.sock.close()
         self.close = True
