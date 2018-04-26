@@ -38,7 +38,7 @@ class Resolver:
             self.rc = RecordCache(self.ttl)
         self.zone = Zone()
         self.sock = sock
-        if self.sock == None:
+        if self.sock is None:
             self.sock = SocketWrapper(53)
             self.sock.start()
 

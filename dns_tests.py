@@ -78,6 +78,13 @@ class TestServer(TestCase):
         ip1 = mess.answers[0].rdata.address
         ip2= socket.gethostbyname("nickstracke.xyz")
         self.assertEqual(ip1, ip2)
+
+    def test_authority(self):
+        data = self.send_query("ns1.ourdomain.com", PORT+4)
+        mess = Message.from_bytes(data)
+        ip1 = mess.answers[0].rdata.address
+        print(ip1)
+        self.assertEqual(ip1, "255.255.255.255")
     
 
     def send_query(self, hostname, port):
