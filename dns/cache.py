@@ -32,7 +32,6 @@ class RecordCache:
         self.read_cache_file()
 
     def lookup(self, dname, type_, class_):
-        print("using caching")
         """Lookup resource records in cache
 
         Lookup for the resource records for a domain name with a specific type
@@ -94,7 +93,6 @@ class RecordCache:
         try:
             with self.writeLock:
                 with open("cache", "w") as file_:
-                    #print("file")
                     json.dump(self.records, file_, indent=2)
         except:
             print("could not write cache")

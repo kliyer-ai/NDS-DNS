@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch, call
 
-from util import DNSTestCase
+from tests.util import DNSTestCase
 
 from dns.name import Name
 from dns.rtypes import Type

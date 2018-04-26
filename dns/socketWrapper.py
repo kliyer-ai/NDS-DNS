@@ -26,12 +26,11 @@ class SocketWrapper(threading.Thread):
             self.listen()
             self.flush_send()
 
-
     def listen(self):
         if self.close:
             self.sock.close()
             return
-        r, _, _ = select.select([self.sock], [], [], 0.00)
+        r, _, _ = select.select([self.sock], [], [], 0.01)
         if r:
             data, addr = self.sock.recvfrom(1024)
             msg = message.Message.from_bytes(data)

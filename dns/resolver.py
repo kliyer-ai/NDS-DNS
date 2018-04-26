@@ -44,13 +44,12 @@ class Resolver:
 
     def _make_id(self):
         gm = time.gmtime()
-        mss = str(time.time()).split(".")[1][0:4] 
-        gms = str(gm.tm_year) + str(gm.tm_mon) + str(gm.tm_mday) + str(gm.tm_hour) + str(gm.tm_min) + str(gm.tm_sec)
+        mss = str(time.time()).split(".")[1][0:3] 
+        gms = str(gm.tm_sec)
         id = int(gms + mss)
-        return 1234#id 
+        return id 
 
     def gethostbyname(self, hostname, id = 4242):
-        print("using resolver")
         """Translate a host name to IPv4 address.
 
         Currently this method contains an example. You will have to replace
@@ -157,7 +156,6 @@ class Resolver:
 
             elif sbelt:
                 rr = sbelt.pop()
-                print(rr.to_dict())
                 addr = rr.rdata.address
                 self.sock.send((query,addr))
             else:

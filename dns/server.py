@@ -31,7 +31,6 @@ class RequestHandler(Thread):
         self.cache = cache
         self.resolver = Resolver(5, caching, ttl, sock, self.cache)
         self.sock = sock
-        print("spawned request Handler")
 
     def run(self):
         """ Run the handler thread"""
@@ -129,28 +128,34 @@ class RequestHandler(Thread):
                 mess.authorities += zone_resolution["authorities"]
                 mess.answers += zone_resolution["answers"]
 
-                cnames = [ rr for rr in zone_resolution["answers"] if rr.type_ == Type.CNAME ]
-                for cn in cnames:
-                    questions.append(Question( cn.rdata.cname , Type.A, cn.class_))
+                if type_ != Type.CNAME:
+                    cnames = [ rr for rr in zone_resolution["answers"] if rr.type_ == Type.CNAME ]
+                    for cn in cnames:
+                        questions.append(Question( cn.rdata.cname , Type.A, cn.class_))
 
                 mess.header.aa = 1
                 continue
 
-            print("curious", name.labels)
             cached_rrs = self.cache.lookup(str(name), type_, class_)
+            cached_cname = self.cache.lookup(str(name), Type.CNAME, class_)
             if cached_rrs:
                 mess.answers += cached_rrs
+                continue
+            elif cached_cname and type_ != Type.CNAME:
+                for rr in cached_cname:
+                    mess.answer.append(rr)
+                    questions.append(Question( rr.rdata.cname , type_, class_))
                 continue
             elif not rd:
                 matched = self.cache.matchByLabel(str(name), Type.NS, class_)
                 mess.authorities += matched
                 for m in matched:
                     glue = self.cache.lookup(str(m.rdata.nsdname), Type.A, class_)
-                    mess.authorities += glue
+                    mess.additionals += glue
+                continue
 
-            print("curious", name.labels)
             if rd:
-                hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(str(name))##TODO ADD ID!!
+                hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(str(name))
                 mess.answers += aliaslist
                 mess.answers += ipaddrlist
                 mess.header.ra = 1            
@@ -248,7 +253,6 @@ class Server:
 
     def serve(self):
         """Start serving requests"""
-        print("serving on port", self.port)
         while not self.done:
             data = None
             while not data:

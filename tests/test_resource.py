@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from util import DNSTestCase
+from tests.util import DNSTestCase
 
 from dns.resource import ResourceRecord, ARecordData
 from dns.name import Name
