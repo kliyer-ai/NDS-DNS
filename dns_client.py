@@ -24,11 +24,12 @@ def resolve():
     args = parser.parse_args()
 
     resolver = Resolver(args.timeout, args.caching, args.ttl)
-    hostname, aliaslist, ipaddrlist = resolver.gethostbyname(args.hostname)
+    print(resolver._make_id())
+    #hostname, aliaslist, ipaddrlist = resolver.gethostbyname(args.hostname)
 
-    print(hostname)
-    print([rr.rdata.address for rr in aliaslist])
-    print([rr.rdata.address for rr in ipaddrlist])
+    #print(hostname)
+    #print([rr.rdata.address for rr in aliaslist])
+    #print([rr.rdata.address for rr in ipaddrlist])
 
 
 

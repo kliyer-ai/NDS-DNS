@@ -17,7 +17,7 @@ class SocketWrapper(threading.Thread):
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((ip, self.port))
-        self.sock.settimeout(0.1)
+        self.sock.settimeout(1)
         self.close = False
 
     def run(self):
@@ -44,7 +44,7 @@ class SocketWrapper(threading.Thread):
             return
         r, _, _ = select.select([self.sock], [], [], 0.00)
         if r:
-            data, addr = self.sock.recvfrom(1024, )
+            data = self.sock.recv(1024)
             msg = message.Message.from_bytes(data)
             id = msg.header.ident
             if id in self.msgs:
@@ -77,5 +77,6 @@ class SocketWrapper(threading.Thread):
         """
         self.q.put(msg)
 
-    def shotdown(self):
+    def shutdown(self):
+        self.sock.shutdown()
         self.close = True

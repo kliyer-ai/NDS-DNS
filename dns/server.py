@@ -20,7 +20,7 @@ from dns.resource import ResourceRecord
 class RequestHandler(Thread):
     """A handler for requests to the DNS server"""
 
-    def __init__(self, data, addr, catalog, sock, caching):
+    def __init__(self, data, addr, catalog, sock, caching, ttl):
         """Initialize the handler thread"""
         super().__init__()
         self.daemon = True
@@ -29,7 +29,7 @@ class RequestHandler(Thread):
         self.catalog = catalog
         self.cache = RecordCache(0)
         self.sock = sock
-        self.resolver = Resolver(5, caching, 0, self.sock)
+        self.resolver = Resolver(5, caching, ttl, self.sock)
 
     def run(self):
         """ Run the handler thread"""
@@ -163,7 +163,9 @@ class RequestHandler(Thread):
         mess.header.ar_count = len(mess.additionals)
 
         # send message   
-        self.sock.sendto(mess.to_bytes(), self.addr)
+        #self.sock.sendto(mess.to_bytes(), self.addr)
+        msg = (mess, self.addr[0], self.addr[1])
+        self.sock.send(msg)
 
         #if zone.records[name]: # TODO: check for .
         #    mess.answers += 
@@ -249,10 +251,11 @@ class Server:
             while not data:
                 data, addr = self.sock.msgThere(-1)
             print(addr)
-            re = RequestHandler(data, addr, self.catalog, self.sock, self.caching)
+            re = RequestHandler(data, addr, self.catalog, self.sock, self.caching, self.ttl)
             re.start()
 
 
     def shutdown(self):
         """Shut the server down"""
+        self.sock.shutdown()
         self.done = True

@@ -9,6 +9,7 @@ DNS server, but with a different list of servers.
 
 
 import socket
+import time
 
 from dns.classes import Class
 from dns.message import Message, Question, Header
@@ -17,11 +18,12 @@ from dns.rtypes import Type
 from dns import cache
 from dns.zone import Zone
 from dns.socketWrapper import SocketWrapper
+import time
 
 class Resolver:
     """DNS resolver"""
 
-    def __init__(self, timeout, caching, ttl, sock = None, id = 9292):
+    def __init__(self, timeout, caching, ttl, sock = None):
         """Initialize the resolver
 
         Args:
@@ -37,7 +39,13 @@ class Resolver:
         if self.sock == None:
             self.sock = SocketWrapper(53)
             self.sock.start()
-        self.id = id
+
+    def _make_id(self):
+        gm = time.gmtime()
+        mss = str(time.time()).split(".")[1][0:4] 
+        gms = str(gm.tm_year) + str(gm.tm_mon) + str(gm.tm_mday) + str(gm.tm_hour) + str(gm.tm_min) + str(gm.tm_sec)
+        id = int(gms + mss)
+        return id 
 
     def gethostbyname(self, hostname):
         """Translate a host name to IPv4 address.
@@ -108,9 +116,11 @@ class Resolver:
                 slist += [ns]
 
 
+        id = self._make_id()
+
         # Create and send query
         question = Question(Name(hostname), Type.A, Class.IN)
-        header = Header(self.id, 0, 1, 0, 0, 0)
+        header = Header(id, 0, 1, 0, 0, 0)
         header.qr = 0  # 0 for query
         header.opcode = 0 # standad query
         header.rd = 0 # not recursive
@@ -127,7 +137,6 @@ class Resolver:
         while not found:
             if slist:
                 rr = slist.pop()
-                print("rsolver",rr.to_dict())
                 if rr.type_ == Type.A:
                     addr = rr.rdata.address
                     self.sock.send((query,addr))
@@ -154,7 +163,7 @@ class Resolver:
             # Receive response
             data = None
             while not data:
-                data = self.sock.msgThere(self.id)
+                data = self.sock.msgThere(id)
             response = data[0]
             #response = Message.from_bytes(data)
 
