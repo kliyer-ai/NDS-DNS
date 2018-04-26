@@ -34,7 +34,7 @@ class SocketWrapper(threading.Thread):
         if self.close:
             self.sock.close()
             return
-        r, _, _ = select.select([self.sock], [], [], 0.01)
+        r, _, _ = select.select([self.sock], [], [], 0.1)
         if r:
             data, addr = self.sock.recvfrom(1024)
             msg = message.Message.from_bytes(data)
