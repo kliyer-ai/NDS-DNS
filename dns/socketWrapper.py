@@ -24,18 +24,6 @@ class SocketWrapper(threading.Thread):
             self.listen()
             self.flush_send()
 
-    def listBocking(self, id):
-        idMsgs = []
-        while not idMsgs:
-            with self.readlock:
-                if id in self.msgs:
-                    idMsgs = self.msgs[id]
-                    self.msgs[id] = []
-                if id == -1:
-                    for k, m in self.msgs:
-                        if m.qr:
-                            idMsgs += [m]
-        return idMsgs
 
     def listen(self):
         if self.close:
@@ -47,9 +35,9 @@ class SocketWrapper(threading.Thread):
             msg = message.Message.from_bytes(data)
             id = msg.header.ident
             if id in self.msgs:
-                self.msgs[id] += msg
+                self.msgs[id].append((msg,addr))
             else:
-                self.msgs[id] = [msg]
+                self.msgs[id] = [(msg,addr)]
 
     def flush_send(self):
         while not self.q.empty():
@@ -65,7 +53,7 @@ class SocketWrapper(threading.Thread):
                 self.msgs[id] = []
             if id==-1:
                 for k,m in self.msgs:
-                    if m.qr:
+                    if m[0].qr:
                         idMsgs += [m]
         return idMsgs
 

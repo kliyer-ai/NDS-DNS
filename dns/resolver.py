@@ -14,14 +14,14 @@ from dns.classes import Class
 from dns.message import Message, Question, Header
 from dns.name import Name
 from dns.rtypes import Type
-from dns import cache
+from dns.cache import RecordCache
 from dns.zone import Zone
 from dns.socketWrapper import SocketWrapper
 
 class Resolver:
     """DNS resolver"""
 
-    def __init__(self, timeout, caching, ttl, sock = None, id = 9292):
+    def __init__(self, timeout, caching, ttl, sock = None,cache = None):
         """Initialize the resolver
 
         Args:
@@ -30,16 +30,17 @@ class Resolver:
         """
         self.timeout = timeout
         self.caching = caching
-        self.rc = cache.RecordCache(ttl)
+        self.rc = cache
         self.ttl = ttl
+        if self.rc == None:
+            self.rc = RecordCache(self.ttl)
         self.zone = Zone()
         self.sock = sock
         if self.sock == None:
             self.sock = SocketWrapper(53)
             self.sock.start()
-        self.id = id
 
-    def gethostbyname(self, hostname):
+    def gethostbyname(self, hostname, id = 4242):
         """Translate a host name to IPv4 address.
 
         Currently this method contains an example. You will have to replace
@@ -110,7 +111,7 @@ class Resolver:
 
         # Create and send query
         question = Question(Name(hostname), Type.A, Class.IN)
-        header = Header(self.id, 0, 1, 0, 0, 0)
+        header = Header(id, 0, 1, 0, 0, 0)
         header.qr = 0  # 0 for query
         header.opcode = 0 # standad query
         header.rd = 0 # not recursive
@@ -155,7 +156,7 @@ class Resolver:
             data = None
             while not data:
                 data = self.sock.msgThere(self.id)
-            response = data
+            response,_ = data
             #response = Message.from_bytes(data)
 
             for answer in response.answers:                

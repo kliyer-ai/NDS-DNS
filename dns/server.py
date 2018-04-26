@@ -15,20 +15,21 @@ from dns.cache import RecordCache
 from dns.resolver import Resolver
 from dns.socketWrapper import SocketWrapper
 from dns.resource import ResourceRecord
+from dns.cache import RecordCache
 
 
 class RequestHandler(Thread):
     """A handler for requests to the DNS server"""
 
-    def __init__(self, data, addr, catalog, sock, caching):
+    def __init__(self, data, addr, catalog, sock, caching, cache):
         """Initialize the handler thread"""
         super().__init__()
         self.daemon = True
         self.data = data
         self.addr = addr
         self.catalog = catalog
-        self.cache = RecordCache(0)
-        self.resolver = Resolver(5, caching, 0, self.sock)
+        self.cache = cache
+        self.resolver = Resolver(5, caching, 0, self.sock, self.cache)
         self.sock = sock
 
     def run(self):
@@ -148,7 +149,7 @@ class RequestHandler(Thread):
 
             print("curious", name.labels)
             if rd:
-                hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(str(name))
+                hostname, aliaslist, ipaddrlist = self.resolver.gethostbyname(str(name))##TODO ADD ID!!
                 mess.answers += aliaslist
                 mess.answers += ipaddrlist
                 mess.header.ra = 1            
@@ -240,6 +241,7 @@ class Server:
         self.catalog = Catalog()
         self.sock = SocketWrapper(self.port)
         self.sock.start()
+        self.cache = RecordCache(self.ttl)
 
     def serve(self):
         """Start serving requests"""
@@ -247,10 +249,11 @@ class Server:
         while not self.done:
             data = None
             while not data:
-                data, addr = self.sock.msgThere(-1)
-            print(addr)
-            re = RequestHandler(data, addr, self.catalog, self.sock, self.caching)
-            re.start()
+                msgs = self.sock.msgThere(-1)
+                for m in msgs:
+                    data,addr = m
+                    re = RequestHandler(data, addr, self.catalog, self.sock, self.caching, self.cache)
+                    re.start()
 
 
     def shutdown(self):
