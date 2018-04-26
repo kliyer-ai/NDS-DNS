@@ -11,13 +11,17 @@ class SocketWrapper(threading.Thread):
     msgs = {}
     q = queue.Queue(42)
 
-    def __init__(self, port):
+    def __init__(self, port, ip=None):
         threading.Thread.__init__(self)
-        ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
+
+        if ip is None:
+            self.ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
+        else:
+            self.ip = ip
         
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((ip, self.port))
+        self.sock.bind((self.ip, self.port))
         self.sock.settimeout(1)
         self.close = False
 
@@ -44,8 +48,9 @@ class SocketWrapper(threading.Thread):
     def flush_send(self):
         while not self.q.empty():
             i = self.q.get()
+            self.sock.sendto(i[0].to_bytes(), (i[1], i[2]))
             print(i[1])
-            self.sock.sendto(i[0].to_bytes(), (i[1], self.port))
+            
 
     def msgThere(self, id):
         idMsgs = []

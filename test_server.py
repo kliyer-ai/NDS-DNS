@@ -20,7 +20,7 @@ def main():
   ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
   
   sock.sendto(query.to_bytes(), (ip, 53))
-  data, addr = sock.recvfrom(1024)
+  data = sock.recv(1024)
   mess = Message.from_bytes(data)
   """
   answer =  ResourceRecord.to_dict(mess.answers[0])
@@ -31,7 +31,7 @@ def main():
   rrs += mess.answers + mess.authorities + mess.additionals
   for r in rrs:
     print("R", r.to_dict())
-  print(addr)
+
 
 if __name__ == '__main__':
   main()

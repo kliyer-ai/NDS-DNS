@@ -9,6 +9,8 @@ A simple example of a client using the DNS resolver.
 from argparse import ArgumentParser
 
 from dns.resolver import Resolver
+from dns.cache import RecordCache
+from dns.socketWrapper import SocketWrapper
 
 
 def resolve():
@@ -23,13 +25,17 @@ def resolve():
                         help="TTL value of cached entries (if > 0)")
     args = parser.parse_args()
 
-    resolver = Resolver(args.timeout, args.caching, args.ttl)
-    print(resolver._make_id())
-    #hostname, aliaslist, ipaddrlist = resolver.gethostbyname(args.hostname)
+    s = SocketWrapper(53)
+    s.start()
+    rc = RecordCache(3600)
+    resolver = Resolver(args.timeout, args.caching, args.ttl, s, rc)
+    hostname, aliaslist, ipaddrlist = resolver.gethostbyname(args.hostname)
+    s.shutdown()
+    rc.write_cache_file()
 
-    #print(hostname)
-    #print([rr.rdata.address for rr in aliaslist])
-    #print([rr.rdata.address for rr in ipaddrlist])
+    print(hostname)
+    print([rr.rdata.address for rr in aliaslist])
+    print([rr.rdata.address for rr in ipaddrlist])
 
 
 

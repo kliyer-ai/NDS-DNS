@@ -265,5 +265,6 @@ class Server:
 
     def shutdown(self):
         """Shut the server down"""
+        self.cache.write_cache_file()
         self.sock.shutdown()
         self.done = True

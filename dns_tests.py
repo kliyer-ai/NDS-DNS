@@ -7,6 +7,15 @@ import sys
 import unittest
 from unittest import TestCase
 from argparse import ArgumentParser
+from dns.resolver import Resolver
+from dns.socketWrapper import SocketWrapper
+import socket
+from dns.server import Server
+import threading
+from dns.classes import Class
+from dns.message import Message, Question, Header
+from dns.name import Name
+from dns.rtypes import Type
 
 
 PORT = 5001
@@ -16,6 +25,16 @@ SERVER = "localhost"
 class TestResolver(TestCase):
     """Resolver tests"""
 
+    def test_check_query(self):
+        s = SocketWrapper(PORT)
+        s.start()
+        res = Resolver(5, False, 3600, s)
+        hostname, alias, ips = res.gethostbyname("nickstracke.xyz")
+        s.shutdown()
+        ip1 = ips[0].rdata.address
+        ip2= socket.gethostbyname("nickstracke.xyz")
+        self.assertEqual(ip1, ip2)
+        
 
 class TestCache(TestCase):
     """Cache tests"""
@@ -27,6 +46,36 @@ class TestResolverCache(TestCase):
 
 class TestServer(TestCase):
     """Server tests"""
+
+    def test_server_no_caching(self):
+        server = Server(PORT, False, 3600)
+        s1 = threading.Thread(target=server.serve)
+        s1.daemon = True
+        s1.start()
+        
+        question = Question(Name("nickstracke.xyz"), Type.A, Class.IN)
+        header = Header(9001, 0, 1, 0, 0, 0)
+        header.qr = 0  # 0 for query
+        header.opcode = 0 # standad query
+        header.rd = 1 #  recursive
+        query = Message(header, [question])
+        ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((ip, PORT+1))
+        
+        sock.sendto(query.to_bytes(), (ip, PORT))
+        data, addr = sock.recvfrom(1024)
+        sock.close()
+
+        server.shutdown()       
+        
+        mess = Message.from_bytes(data)
+        ip1 = mess.answers[0].rdata.address
+        ip2= socket.gethostbyname("nickstracke.xyz")
+        self.assertEqual(ip1, ip2)
+
+
 
 
 def run_tests():

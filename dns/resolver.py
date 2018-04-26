@@ -49,7 +49,7 @@ class Resolver:
         id = int(gms + mss)
         return id 
 
-    def gethostbyname(self, hostname, id = 4242):
+    def gethostbyname(self, hostname):
         """Translate a host name to IPv4 address.
 
         Currently this method contains an example. You will have to replace
@@ -141,7 +141,7 @@ class Resolver:
                 rr = slist.pop()
                 if rr.type_ == Type.A:
                     addr = rr.rdata.address
-                    self.sock.send((query,addr))
+                    self.sock.send((query,addr, 53))
                 elif rr.type_ == Type.NS:
                     fqdn = str(rr.rdata.nsdname)
                     _, _, a_rrs = self.gethostbyname(fqdn)
@@ -157,7 +157,7 @@ class Resolver:
             elif sbelt:
                 rr = sbelt.pop()
                 addr = rr.rdata.address
-                self.sock.send((query,addr))
+                self.sock.send((query,addr, 53))
             else:
                 break
 
