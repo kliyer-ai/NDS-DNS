@@ -21,14 +21,16 @@ class RecordCache:
     """Cache for ResourceRecords"""
     addLock = threading.Lock()
     writeLock = threading.Lock()
-    def __init__(self, ttl):
+    def __init__(self, ttl, cachefile = "cache"):
         """Initialize the RecordCache
 
         Args:
             ttl (int): TTL of cached entries (if > 0)
+            cachefile (basestring): name of file to be used as cache - default:cache
         """
         self.records = []
         self.ttl = ttl
+        self.cachefile = cachefile
         self.read_cache_file()
 
     def lookup(self, dname, type_, class_):
@@ -82,7 +84,7 @@ class RecordCache:
         """Read the cache file from disk"""
         dcts = []
         try:
-            with open("cache", "r") as file_:
+            with open(self.cachefile, "r") as file_:
                 dcts = json.load(file_)
         except:
             print("could not read cache")
@@ -92,7 +94,7 @@ class RecordCache:
         """Write the cache file to disk"""
         try:
             with self.writeLock:
-                with open("cache", "w") as file_:
+                with open(self.cachefile, "w") as file_:
                     json.dump(self.records, file_, indent=2)
         except:
             print("could not write cache")

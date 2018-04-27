@@ -217,3 +217,10 @@ class Resolver:
             return self.rc.matchByLabel(dname, type_, class_)
         else:
             return []
+
+    def shutdown(self):
+        """
+        to be used only when initialized for testing
+        :return:
+        """
+        self.sock.shutdown()

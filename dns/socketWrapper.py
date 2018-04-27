@@ -48,6 +48,7 @@ class SocketWrapper(threading.Thread):
     def flush_send(self):
         while not self.q.empty():
             i = self.q.get()
+            print(self.sock)
             self.sock.sendto(i[0].to_bytes(), (i[1], i[2]))
             print(i[1])
             
