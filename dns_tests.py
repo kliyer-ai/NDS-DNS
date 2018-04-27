@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from dns.resolver import Resolver
 from dns.socketWrapper import SocketWrapper
 import socket
-from dns.server import Server
+from dns.server import Server,RequestHandler
 import threading
 from dns.classes import Class
 from dns.message import Message, Question, Header
@@ -19,6 +19,8 @@ from dns.name import Name
 from dns.rtypes import Type
 from dns.cache import RecordCache
 from dns.resource import *
+from dns.zone import Catalog
+
 import time
 
 
@@ -30,17 +32,12 @@ class TestResolver(TestCase):
     """Resolver tests"""
 
     def test_check_query(self):
-        pass
-        """
-        s = SocketWrapper(1234)
-        s.start()
-        res = Resolver(5, False, 3600, s)
+        res = Resolver(5, False, 3600)
         hostname, alias, ips = res.gethostbyname("nickstracke.xyz")
-        s.shutdown()
         ip1 = ips[0].rdata.address
         ip2= socket.gethostbyname("nickstracke.xyz")
         self.assertEqual(ip1, ip2)
-        """
+        res.shutdown()
         
 
 class TestCache(TestCase):
@@ -93,7 +90,32 @@ class TestCache(TestCase):
             l.pop("ttl", None)
         self.assertNotIn(r2d,ls)
 
+class TestZone(TestCache):
+    def setUp(self):
+        self.catalog = Catalog()
+        self.rq = RequestHandler(None,None,self.catalog,None,True,None)
 
+    def test_OurDomain(self):
+        r = self.rq.resolveZone("ns1.ourdomain.com",Type.A,Class.IN)
+        print(r['answers'][0].rdata.address)
+        self.assertEqual(r['answers'][0].rdata.address,"255.255.255.255")
+
+    def test_Cname(self):
+        r = self.rq.resolveZone("stupid.ourdomain.com",Type.A, Class.IN)
+        name = r['answers'][0].to_dict()['rdata']['cname']
+        self.assertEqual("nickstracke.xyz.", name)
+
+    def test_NS(self):
+        r = self.rq.resolveZone("ourdomain.com", Type.A, Class.IN)
+        print(r)
+        add = r['additionals'][0]
+        auth = r['authorities'][0]
+        self.assertEqual(auth.rdata.nsdname, add.name)
+        self.assertEqual(add.rdata.address, '255.255.255.255')
+
+    def tearDown(self):
+        print("--closing--")
+        self.rq.resolver.shutdown()
 
 class TestResolverCache(TestCase):
     """Resolver tests with cache enabled"""
@@ -129,7 +151,7 @@ class TestServer(TestCase):
         self.server.shutdown()
 
     def test_server_no_caching(self):
-        data = self.send_query("nickstracke.xyz", PORT+1)
+        data = self.send_query("nickstracke.xyz", PORT+2)
         
         mess = Message.from_bytes(data)
         ip1 = mess.answers[0].rdata.address
@@ -165,10 +187,9 @@ class TestServer(TestCase):
         header.rd = 1 #  recursive
         query = Message(header, [question])
         ip = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
-
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((ip, port))
-        
+        print("Sock Test:",sock)
         sock.sendto(query.to_bytes(), (ip, PORT))
         data = sock.recv(1024)
         sock.close()
