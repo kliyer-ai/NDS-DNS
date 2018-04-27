@@ -90,7 +90,7 @@ class TestCache(TestCase):
             l.pop("ttl", None)
         self.assertNotIn(r2d,ls)
 
-class TestZone(TestCache):
+class TestZone(TestCase):
     def setUp(self):
         self.catalog = Catalog()
         self.rq = RequestHandler(None,None,self.catalog,None,True,None)
@@ -120,7 +120,7 @@ class TestZone(TestCache):
 class TestResolverCache(TestCase):
     """Resolver tests with cache enabled"""
     def setUp(self):
-        self.RC = RecordCache(100,"ResolverTestCache.cache")
+        self.RC = RecordCache(100,"dns/ResolverTestCache.cache")#never written to
         self.res = Resolver(5,True,-1)
 
     def test_resolver_caching(self):
@@ -151,7 +151,7 @@ class TestServer(TestCase):
         self.server.shutdown()
 
     def test_server_no_caching(self):
-        data = self.send_query("nickstracke.xyz", PORT+2)
+        data = self.send_query("nickstracke.xyz", PORT+5)
         
         mess = Message.from_bytes(data)
         ip1 = mess.answers[0].rdata.address
@@ -193,7 +193,6 @@ class TestServer(TestCase):
         sock.sendto(query.to_bytes(), (ip, PORT))
         data = sock.recv(1024)
         sock.close()
-
         return data
 
 

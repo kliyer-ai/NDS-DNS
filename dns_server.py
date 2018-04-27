@@ -3,6 +3,12 @@
 """ DNS server
 
 This script contains the code for starting a DNS server.
+
+project by
+    Nick Stracke s4771192
+    Johannes-Lucas Loewe s1013635
+
+Note: our zone file is not called zone but ourdomain.zone to keep up with specifications!
 """
 
 

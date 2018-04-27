@@ -91,13 +91,9 @@ class RequestHandler(Thread):
         mess.header.ns_count = len(mess.authorities)
         mess.header.ar_count = len(mess.additionals)
 
-        # send message   
-        #self.sock.sendto(mess.to_bytes(), self.addr)
         msg = (mess, self.addr[0], self.addr[1])
         self.sock.send(msg)
-
-        #if zone.records[name]: # TODO: check for .
-        #    mess.answers += 
+        self.cache.write_cache_file()#write the cached records so they dont get lost
 
     def resolveZone(self, name, type_, class_):
         name = Name(name)
@@ -187,6 +183,6 @@ class Server:
 
     def shutdown(self):
         """Shut the server down"""
-        self.cache.write_cache_file()
+        self.cache.write_cache_file() #just to be sure
         self.done = True
         self.sock.shutdown()

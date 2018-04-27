@@ -61,44 +61,6 @@ class Resolver:
         Returns:
             (str, [str], [str]): (hostname, aliaslist, ipaddrlist)
         """
-
-        """
-        .                        3600000      NS    A.ROOT-SERVERS.NET.
-        A.ROOT-SERVERS.NET.      3600000      A     198.41.0.4
-        A.ROOT-SERVERS.NET.      3600000      AAAA  2001:503:ba3e::2:30
-        """
-
-
-
-        """
-        The top level algorithm has four steps:
-
-        1. See if the answer is in local information, and if so return
-            it to the client.
-
-        2. Find the best servers to ask. FIRST FROM LIST
-
-        3. Send them queries until one returns a response.
-
-        4. Analyze the response, either:
-
-                a. if the response answers the question or contains a name
-                    error, cache the data as well as returning it back to
-                    the client.
-
-                b. if the response contains a better delegation to other
-                    servers, cache the delegation information, and go to
-                    step 2.
-
-                c. if the response shows a CNAME and that is not the
-                    answer itself, cache the CNAME, change the SNAME to the
-                    canonical name in the CNAME RR and go to step 1.
-
-                d. if the response shows a servers failure or other
-                    bizarre contents, delete the server from the SLIST and
-                    go back to step 3.
-        """
-
         alias_list = []
         a_list = []
         slist = []        

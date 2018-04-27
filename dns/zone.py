@@ -17,7 +17,7 @@ class Catalog:
 
     def __init__(self):
         """Initialize the catalog"""
-        self.zones = {"ourdomain.com" : Zone().read_master_file("dns/ourdomain.zone")}
+        self.zones = {"ourdomain.com" : Zone().read_master_file("ourdomain.zone")}
 
     def add_zone(self, name, zone):
         """Add a new zone to the catalog

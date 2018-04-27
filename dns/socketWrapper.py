@@ -35,21 +35,23 @@ class SocketWrapper(threading.Thread):
             return
         r, _, _ = select.select([self.sock], [], [], 0.2)
         if r:
-            data, addr = self.sock.recvfrom(1024)
-            msg = message.Message.from_bytes(data)
-            id = msg.header.ident
-            with self.readlock:
-                if id in self.msgs:
-                    self.msgs[id].append((msg,addr))
-                else:
-                    self.msgs[id] = [(msg,addr)]
+            try:
+                if not self.close:
+                    data, addr = self.sock.recvfrom(1024)
+                    msg = message.Message.from_bytes(data)
+                    id = msg.header.ident
+                    with self.readlock:
+                        if id in self.msgs:
+                            self.msgs[id].append((msg,addr))
+                        else:
+                            self.msgs[id] = [(msg,addr)]
+            except:
+                print("minor issue in socket handling",self.close)
 
     def flush_send(self):
         while not self.q.empty():
             i = self.q.get()
-            print(self.sock)
             self.sock.sendto(i[0].to_bytes(), (i[1], i[2]))
-            print(i[1])
             
 
     def msgThere(self, id):
